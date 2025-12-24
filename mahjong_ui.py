@@ -5,9 +5,10 @@ import random
 
 st.set_page_config(page_title="麻將 AI 全功能整合版", layout="wide")
 
+# --- 📱 手機版 UI 優化代碼 (修正反白問題) ---
 st.markdown("""
     <style>
-    /* 1. 讓按鈕變大，方便手指點擊 */
+    /* 1. 強制設定按鈕外觀，確保文字可見 */
     div.stButton > button {
         width: 100%;
         height: 3.5em !important;
@@ -15,22 +16,34 @@ st.markdown("""
         font-weight: bold !important;
         border-radius: 8px !important;
         margin-bottom: 5px;
-        background-color: #f0f2f6;
+        
+        /* 修正顏色衝突 */
+        background-color: #f0f2f6 !important; /* 淺灰色背景 */
+        color: #31333F !important;           /* 深色文字 */
+        border: 2px solid #d1d5db !important; /* 邊框色 */
     }
     
-    /* 2. 調整中央控制台按鈕的間距，避免誤觸 */
-    [data-testid="column"] {
-        padding: 1px !important;
+    /* 按鈕被按下或滑鼠經過時的顏色 */
+    div.stButton > button:hover, div.stButton > button:active {
+        background-color: #FFD700 !important; /* 點擊時變金色 */
+        color: black !important;
+        border: 2px solid #FFD700 !important;
     }
 
-    /* 3. 隱藏 Streamlit 頂部裝飾條與選單，讓它更像原生 App */
+    /* 2. 針對中央選牌控制台的深色背景微調 */
+    .stMarkdown h3 {
+        color: #FFFFFF !important;
+    }
+    
+    /* 3. 隱藏不必要元素 */
     header {visibility: hidden;}
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     
-    /* 4. 強制手機版手牌區橫向不換行（如果螢幕夠寬） */
-    .stHorizontalBlock {
-        overflow-x: auto;
+    /* 4. 修正表格文字顏色，避免在深色模式下看不清楚 */
+    .stTable {
+        background-color: white !important;
+        color: black !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -237,3 +250,4 @@ with res_c2:
                 st.bar_chart(df_s.set_index('出牌'))
 
                 st.table(df_s)
+
