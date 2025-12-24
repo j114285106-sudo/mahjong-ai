@@ -4,56 +4,48 @@ import pandas as pd
 import random
 
 # --- 基礎設定 ---
-st.set_page_config(page_title="麻將 AI 實戰控制台", layout="wide")
+st.set_page_config(page_title="麻將 AI 控制台", layout="wide")
 
-# --- 🎨 iOS 修正版 CSS (解決反白與按鈕問題) ---
+# --- 🎨 強制手機橫向九宮格 CSS ---
 st.markdown("""
     <style>
-    /* 確保全域背景為淺灰色，文字為深色 */
-    .stApp {
-        background-color: #F8F9FA !important;
-    }
+    /* 1. 全域背景與文字 */
+    .stApp { background-color: #F8F9FA !important; }
     
-    /* 強制按鈕變為飽滿方塊 */
-    div.stButton > button {
-        width: 100% !important;
-        height: 55px !important;
-        font-size: 18px !important;
-        font-weight: bold !important;
-        border-radius: 12px !important;
-        border: 1px solid #CCCCCC !important;
-        background-color: #FFFFFF !important;
-        color: #000000 !important; /* 強制文字黑色 */
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
-    }
-
-    /* 指派按鈕顏色 (+我, +上等) */
-    .action-btn button {
-        background-color: #007AFF !important;
-        color: white !important;
-        border: none !important;
-    }
-
-    /* 分析與模擬按鈕 */
-    .analyze-btn button {
-        background-color: #34C759 !important;
-        color: white !important;
-        height: 65px !important;
-        border: none !important;
-    }
-
-    /* 強制 columns 不換行 */
+    /* 2. 重點：強制讓所有 HorizontalBlock 變為網格，不准換行 */
     [data-testid="stHorizontalBlock"] {
-        flex-wrap: wrap !important;
+        display: grid !important;
+        grid-template-columns: repeat(9, 1fr); /* 預設 9 欄 */
         gap: 4px !important;
     }
-    [data-testid="column"] {
-        flex: 1 1 10% !important;
-        min-width: 40px !important;
+
+    /* 針對字牌 7 欄、動作鈕 4 欄、AI鈕 2 欄做特殊設定 */
+    div.zipai-row [data-testid="stHorizontalBlock"] { grid-template-columns: repeat(7, 1fr) !important; }
+    div.action-row [data-testid="stHorizontalBlock"] { grid-template-columns: repeat(4, 1fr) !important; }
+    div.ai-row [data-testid="stHorizontalBlock"] { grid-template-columns: repeat(2, 1fr) !important; }
+
+    /* 3. 強制按鈕為方塊形狀 */
+    div.stButton > button {
+        width: 100% !important;
+        height: 50px !important; /* 方塊高度 */
+        padding: 0px !important;
+        font-size: 18px !important;
+        font-weight: bold !important;
+        border-radius: 8px !important;
+        background-color: #FFFFFF !important;
+        color: #000000 !important;
+        border: 1px solid #CCCCCC !important;
     }
 
-    header {visibility: hidden;}
-    footer {visibility: hidden;}
+    /* 指派按鈕顏色 */
+    div.action-row button { background-color: #007AFF !important; color: white !important; border: none !important; }
+    /* AI 按鈕顏色 */
+    div.ai-row button { background-color: #34C759 !important; color: white !important; height: 60px !important; }
+
+    /* 4. 移除 Column 的預設寬度限制 */
+    [data-testid="column"] { width: 100% !important; flex: 1 1 0% !important; min-width: 0px !important; }
+
+    header, footer {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
 
@@ -138,10 +130,10 @@ def monte_carlo_simulation(hand, visible_counts, trials=1000):
     return results
 
 # --- 3. UI 介面 ---
-st.markdown(f"### 🎯 已選: <span style='color:#007AFF'>{st.session_state.last_selected}</span>", unsafe_allow_html=True)
+st.write(f"### 🎯 已選: {st.session_state.last_selected}")
 
-# 指派功能
-st.markdown('<div class="action-btn">', unsafe_allow_html=True)
+# 指派區 (4 欄)
+st.markdown('<div class="action-row">', unsafe_allow_html=True)
 a1, a2, a3, a4 = st.columns(4)
 curr = st.session_state.last_selected
 if a1.button("＋我"):
@@ -154,22 +146,25 @@ if a4.button("＋下"):
     if curr: st.session_state.p1_dis.append(curr); st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 九宮格選牌
-for s, label in [("m", "萬"), ("t", "筒"), ("s", "條")]:
+# 數字牌 (9 欄)
+for s in [("m", "萬"), ("t", "筒"), ("s", "條")]:
     cols = st.columns(9)
     for i in range(1, 10):
-        if cols[i-1].button(f"{i}", key=f"n_{i}{s}"):
-            st.session_state.last_selected = f"{i}{s}"; st.rerun()
+        if cols[i-1].button(f"{i}", key=f"n_{i}{s[0]}"):
+            st.session_state.last_selected = f"{i}{s[0]}"; st.rerun()
 
+# 字牌 (7 欄)
+st.markdown('<div class="zipai-row">', unsafe_allow_html=True)
 z_cols = st.columns(7)
 for i, name in enumerate(["東","南","西","北","中","發","白"]):
     if z_cols[i].button(name, key=f"z_{name}"):
         st.session_state.last_selected = name; st.rerun()
+st.markdown('</div>', unsafe_allow_html=True)
 
 st.divider()
 
 # 手牌區
-st.markdown(f"### 🎴 我的手牌 ({len(st.session_state.my_hand)}/17)")
+st.write(f"### 🎴 手牌 ({len(st.session_state.my_hand)}/17)")
 h_row1 = st.columns(9)
 for i, tile in enumerate(st.session_state.my_hand[:9]):
     if h_row1[i].button(tile, key=f"h1_{i}"):
@@ -181,7 +176,7 @@ for i, tile in enumerate(st.session_state.my_hand[9:]):
 
 st.divider()
 
-# 方位監控
+# 方位顯示
 c1, c2, c3 = st.columns(3)
 with c1: st.write("⬅️", "".join(st.session_state.p3_dis)); st.button("清上", on_click=lambda: st.session_state.p3_dis.clear())
 with c2: st.write("⬆️", "".join(st.session_state.p2_dis)); st.button("清對", on_click=lambda: st.session_state.p2_dis.clear())
@@ -189,8 +184,8 @@ with c3: st.write("➡️", "".join(st.session_state.p1_dis)); st.button("清下
 
 st.divider()
 
-# AI 分析按鈕
-st.markdown('<div class="analyze-btn">', unsafe_allow_html=True)
+# AI 分析
+st.markdown('<div class="ai-row">', unsafe_allow_html=True)
 b1, b2 = st.columns(2)
 with b1:
     if st.button("🚀 深度分析", use_container_width=True):
@@ -205,7 +200,6 @@ with b1:
                     rem += max(0, 4 - visible[t])
             ans.append({"牌": discard, "進張": rem})
         st.table(pd.DataFrame(ans).sort_values(by="進張", ascending=False))
-
 with b2:
     if st.button("🧠 大數據模擬", use_container_width=True):
         with st.spinner('模擬中...'):
