@@ -6,45 +6,46 @@ import random
 st.set_page_config(page_title="麻將 AI 全功能整合版", layout="wide")
 
 # --- 📱 手機版 UI 優化代碼 (修正反白問題) ---
+# --- 📱 手機版 UI 強制橫向佈局優化 ---
 st.markdown("""
     <style>
-    /* 1. 強制設定按鈕外觀，確保文字可見 */
-    div.stButton > button {
-        width: 100%;
-        height: 3.5em !important;
-        font-size: 16px !important;
-        font-weight: bold !important;
-        border-radius: 8px !important;
-        margin-bottom: 5px;
-        
-        /* 修正顏色衝突 */
-        background-color: #f0f2f6 !important; /* 淺灰色背景 */
-        color: #31333F !important;           /* 深色文字 */
-        border: 2px solid #d1d5db !important; /* 邊框色 */
+    /* 1. 強制讓 columns 在手機上不換行，保持橫向排列 */
+    [data-testid="column"] {
+        flex: 1 1 0% !important;
+        min-width: 0px !important;
+        padding: 1px !important;
     }
     
-    /* 按鈕被按下或滑鼠經過時的顏色 */
-    div.stButton > button:hover, div.stButton > button:active {
-        background-color: #FFD700 !important; /* 點擊時變金色 */
-        color: black !important;
-        border: 2px solid #FFD700 !important;
+    [data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
     }
 
-    /* 2. 針對中央選牌控制台的深色背景微調 */
-    .stMarkdown h3 {
-        color: #FFFFFF !important;
+    /* 2. 調整按鈕樣式：縮小內距以適應 9 欄排列 */
+    div.stButton > button {
+        width: 100% !important;
+        height: 3em !important;
+        padding: 0px !important;
+        font-size: 14px !important; /* 稍微縮小字體以免按鈕炸開 */
+        font-weight: bold !important;
+        border-radius: 5px !important;
+        
+        /* 確保顏色清晰 */
+        background-color: #f0f2f6 !important; 
+        color: #31333F !important;           
+        border: 1px solid #d1d5db !important;
     }
-    
-    /* 3. 隱藏不必要元素 */
+
+    /* 3. 我的手牌區按鈕：稍微做大一點以便單選刪除 */
+    [data-testid="stExpander"] div.stButton > button {
+        font-size: 12px !important;
+    }
+
+    /* 4. 隱藏不必要元素 */
     header {visibility: hidden;}
-    #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    
-    /* 4. 修正表格文字顏色，避免在深色模式下看不清楚 */
-    .stTable {
-        background-color: white !important;
-        color: black !important;
-    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -250,4 +251,5 @@ with res_c2:
                 st.bar_chart(df_s.set_index('出牌'))
 
                 st.table(df_s)
+
 
