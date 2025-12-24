@@ -4,128 +4,95 @@ import pandas as pd
 import random
 
 # --- 基礎設定 ---
-st.set_page_config(page_title="麻將 AI 實戰控制台 Pro", layout="wide")
+st.set_page_config(page_title="麻將 AI 實戰分析儀", layout="wide")
 
-# --- 📱 手機版：九宮格與自定義佈局 CSS ---
+# --- 🎨 iOS 極致美化 CSS ---
 st.markdown("""
     <style>
-    /* 1. 全域按鈕大型化與字體強化 */
+    /* 1. 全域背景與文字顏色優化 */
+    .stApp {
+        background-color: #F2F2F7; /* iOS 系統背景色 */
+    }
+
+    /* 2. 強制按鈕變為「方塊狀」而非細長條 */
     div.stButton > button {
         width: 100% !important;
-        height: 3.8em !important;
-        font-size: 22px !important; /* 字體加大 */
-        font-weight: 900 !important;
-        background-color: #ffffff !important;
+        height: 60px !important; /* 強制高度，產生方塊感 */
+        font-size: 20px !important;
+        font-weight: bold !important;
+        border-radius: 12px !important; /* iOS 圓角風格 */
+        border: none !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important; /* 輕微陰影 */
+        transition: all 0.1s;
+    }
+
+    /* 3. 不同功能的按鈕配色 */
+    /* 數字牌按鈕 */
+    div[data-testid="column"] button {
+        background-color: #FFFFFF !important;
         color: #000000 !important;
-        border: 2px solid #333 !important;
-        border-radius: 8px !important;
-        margin: 0px !important;
     }
     
-    /* 2. 強制九宮格排版：讓 column 不再自動伸縮 */
+    /* 功能指派按鈕 (+我, +上等) */
+    .action-btn button {
+        background-color: #007AFF !important; /* iOS 藍 */
+        color: white !important;
+    }
+
+    /* 分析按鈕 */
+    .analyze-btn button {
+        background-color: #34C759 !important; /* iOS 綠 */
+        color: white !important;
+        height: 70px !important;
+    }
+
+    /* 清空按鈕 */
+    .clear-btn button {
+        background-color: #FF3B30 !important; /* iOS 紅 */
+        color: white !important;
+        height: 40px !important;
+        font-size: 14px !important;
+    }
+
+    /* 4. 強制九宮格佈局 (Grid) */
     [data-testid="stHorizontalBlock"] {
-        display: grid !important;
-        grid-template-columns: repeat(9, 1fr) !important; /* 強制 9 欄 */
-        gap: 2px !important;
+        gap: 6px !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
     }
-
-    /* 3. 針對字牌設定 7 欄排版 */
-    .zipai-block [data-testid="stHorizontalBlock"] {
-        grid-template-columns: repeat(7, 1fr) !important;
-    }
-
-    /* 4. 針對功能按鈕 (+我, +上等) 設定 4 欄排版 */
-    .action-block [data-testid="stHorizontalBlock"] {
-        grid-template-columns: repeat(4, 1fr) !important;
-    }
-
-    /* 5. 修正手機版欄位間距 */
+    
+    /* 讓每個 column 在手機上佔據固定比例 (例如 9 欄中的 1 欄) */
     [data-testid="column"] {
-        width: auto !important;
-        flex: none !important;
+        flex: 1 1 10% !important; /* 確保 9 個按鈕能排成一橫排 */
+        min-width: 35px !important;
     }
 
-    /* 6. 其他 UI 隱藏與顏色 */
+    /* 5. 隱藏多餘 UI */
     header {visibility: hidden;}
     footer {visibility: hidden;}
-    .stMarkdown p { font-size: 20px !important; font-weight: bold; }
+    .block-container {padding: 10px !important;}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 數據與邏輯初始化 (略，保持不變) ---
+# --- 1. 初始化數據 ---
 if 'my_hand' not in st.session_state:
     for key in ['my_hand', 'p1_dis', 'p2_dis', 'p3_dis', 'last_selected']:
-        st.session_state[key] = []
+        st.session_state[key] = [] if key != 'last_selected' else ""
 
-# --- 核心邏輯 (can_hu, get_shanten, monte_carlo_simulation 略，請保留之前版本) ---
-# [請在此處保留之前的 can_hu, get_shanten, monte_carlo_simulation 函數代碼]
+# --- 核心大腦邏輯 (can_hu, get_shanten, monte_carlo_simulation) ---
+# [請保留你原本的這些 Function 代碼]
+def can_hu(h17): #... 略
+    pass
+def get_shanten(h): #... 略
+    pass
 
-# --- 3. 實戰介面佈局 ---
+# --- 3. 實戰介面 ---
 
-# 第一層：方位顯示 (橫向三等分)
-st.markdown("### 👁️ 全場紀錄")
-c_p3, c_p2, c_p1 = st.columns(3)
-with c_p3: 
-    st.write("上", "".join(st.session_state.p3_dis))
-    if st.button("清", key="c3"): st.session_state.p3_dis = []; st.rerun()
-with c_p2: 
-    st.write("對", "".join(st.session_state.p2_dis))
-    if st.button("清", key="c2"): st.session_state.p2_dis = []; st.rerun()
-with c_p1: 
-    st.write("下", "".join(st.session_state.p1_dis))
-    if st.button("清", key="c1"): st.session_state.p1_dis = []; st.rerun()
-
-st.divider()
-
-# 第二層：中央控制台 (九宮格核心)
-st.markdown("### 🎯 選牌與指派")
-
-# 指派功能 (4 欄排版)
-st.markdown('<div class="action-block">', unsafe_allow_html=True)
-a1, a2, a3, a4 = st.columns(4)
-curr = st.session_state.last_selected
-if curr:
-    if a1.button("＋我"): 
-        if len(st.session_state.my_hand) < 17: st.session_state.my_hand.append(curr); st.session_state.my_hand.sort(); st.rerun()
-    if a2.button("＋上"): st.session_state.p3_dis.append(curr); st.rerun()
-    if a3.button("＋對"): st.session_state.p2_dis.append(curr); st.rerun()
-    if a4.button("＋下"): st.session_state.p1_dis.append(curr); st.rerun()
-st.markdown('</div>', unsafe_allow_html=True)
-
-st.write(f"當前選中: {curr if curr else '-'}")
-
-# 萬、筒、條 (每列強制 9 欄，形成 9 宮格感)
-for s in ['m', 't', 's']:
-    cols = st.columns(9)
-    for i in range(1, 10):
-        if cols[i-1].button(f"{i}", key=f"sel_{i}{s}"):
-            st.session_state.last_selected = f"{i}{s}"; st.rerun()
-
-# 字牌 (7 欄排版)
-st.markdown('<div class="zipai-block">', unsafe_allow_html=True)
-z_names = ["東", "南", "西", "北", "中", "發", "白"]
-z_cols = st.columns(7)
-for i, name in enumerate(z_names):
-    if z_cols[i].button(name, key=f"sel_{name}"):
-        st.session_state.last_selected = name; st.rerun()
-st.markdown('</div>', unsafe_allow_html=True)
-
-st.divider()
-
-# 第三層：我的手牌 (分兩列，每列 9 個，確保按鈕大)
-st.markdown(f"### 🎴 我的手牌 ({len(st.session_state.my_hand)}/17)")
-h_row1 = st.columns(9)
-for i, tile in enumerate(st.session_state.my_hand[:9]):
-    if h_row1[i].button(tile, key=f"h1_{i}"):
-        st.session_state.my_hand.pop(i); st.rerun()
-
-h_row2 = st.columns(9)
-for i, tile in enumerate(st.session_state.my_hand[9:]):
-    if h_row2[i].button(tile, key=f"h2_{i}"):
-        st.session_state.my_hand.pop(i+9); st.rerun()
-
-st.divider()
-
-# 第四層：分析按鈕
-b1, b2 = st.columns(2)
-# [此處保留之前的深度分析與大數據模擬觸發代碼]
+# 頂部：方位監視器 (卡片式設計)
+st.markdown("### 🀄 全場監控")
+c1, c2, c3 = st.columns(3)
+with c1:
+    st.markdown("**⬅️ 上家**")
+    st.code("".join(st.session_state.p3_dis) if st.session_state.p3_dis else "無")
+    st.markdown('<div class="clear-btn">', unsafe_allow_html=True)
+    if st.
