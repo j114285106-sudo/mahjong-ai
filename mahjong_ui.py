@@ -5,6 +5,36 @@ import random
 
 st.set_page_config(page_title="麻將 AI 全功能整合版", layout="wide")
 
+st.markdown("""
+    <style>
+    /* 1. 讓按鈕變大，方便手指點擊 */
+    div.stButton > button {
+        width: 100%;
+        height: 3.5em !important;
+        font-size: 16px !important;
+        font-weight: bold !important;
+        border-radius: 8px !important;
+        margin-bottom: 5px;
+        background-color: #f0f2f6;
+    }
+    
+    /* 2. 調整中央控制台按鈕的間距，避免誤觸 */
+    [data-testid="column"] {
+        padding: 1px !important;
+    }
+
+    /* 3. 隱藏 Streamlit 頂部裝飾條與選單，讓它更像原生 App */
+    header {visibility: hidden;}
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    
+    /* 4. 強制手機版手牌區橫向不換行（如果螢幕夠寬） */
+    .stHorizontalBlock {
+        overflow-x: auto;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 # --- 1. 初始化數據 ---
 for key in ['my_hand', 'p1_dis', 'p2_dis', 'p3_dis', 'last_selected']:
     if key not in st.session_state: st.session_state[key] = []
@@ -205,4 +235,5 @@ with res_c2:
                 stats = monte_carlo_simulation(st.session_state.my_hand, visible)
                 df_s = pd.DataFrame(list(stats.items()), columns=['出牌', '模擬勝次']).sort_values(by='模擬勝次', ascending=False)
                 st.bar_chart(df_s.set_index('出牌'))
+
                 st.table(df_s)
