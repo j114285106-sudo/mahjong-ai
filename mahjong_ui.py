@@ -7,47 +7,67 @@ st.set_page_config(page_title="麻將 AI 全功能整合版", layout="wide")
 
 # --- 📱 手機版 UI 優化代碼 (修正反白問題) ---
 # --- 📱 手機版 UI 強制橫向佈局優化 ---
+# --- 📱 手機版 UI 最終完美佈局 ---
 st.markdown("""
     <style>
-    /* 1. 強制讓 columns 在手機上不換行，保持橫向排列 */
-    [data-testid="column"] {
-        flex: 1 1 0% !important;
-        min-width: 0px !important;
-        padding: 1px !important;
+    /* 讓 Column 能夠在空間不足時自動換行，且保持適當寬度 */
+    [data-testid="stHorizontalBlock"] {
+        flex-wrap: wrap !important;
+        gap: 2px !important;
     }
     
-    [data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        align-items: center !important;
+    [data-testid="column"] {
+        min-width: 40px !important; /* 設定按鈕最小寬度 */
+        flex: 1 1 0% !important;
     }
 
-    /* 2. 調整按鈕樣式：縮小內距以適應 9 欄排列 */
+    /* 調整按鈕外觀：縮小高度與字體，確保不爆開 */
     div.stButton > button {
         width: 100% !important;
-        height: 3em !important;
+        height: 2.8em !important;
         padding: 0px !important;
-        font-size: 14px !important; /* 稍微縮小字體以免按鈕炸開 */
+        font-size: 14px !important;
         font-weight: bold !important;
-        border-radius: 5px !important;
-        
-        /* 確保顏色清晰 */
-        background-color: #f0f2f6 !important; 
-        color: #31333F !important;           
+        background-color: #f0f2f6 !important;
+        color: #31333F !important;
         border: 1px solid #d1d5db !important;
+        border-radius: 4px !important;
     }
 
-    /* 3. 我的手牌區按鈕：稍微做大一點以便單選刪除 */
-    [data-testid="stExpander"] div.stButton > button {
-        font-size: 12px !important;
+    /* 指派按鈕列（+我手牌等）要稍微大一點，因為是主要動作 */
+    .stColumn > div > div > div > button {
+        height: 3.2em !important;
+        font-size: 15px !important;
     }
-
-    /* 4. 隱藏不必要元素 */
-    header {visibility: hidden;}
-    footer {visibility: hidden;}
     </style>
     """, unsafe_allow_html=True)
+
+# --- 中央控制台：建議修改 Python 部分如下 ---
+with mid_c2:
+    st.markdown("<div style='background:#222; padding:10px; border-radius:10px;'>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color:white; text-align:center; margin:0;'>🎯 選牌</h3>", unsafe_allow_html=True)
+    
+    for s, name in [("m", "萬"), ("t", "筒"), ("s", "條")]:
+        st.markdown(f"<p style='color:lightgray; margin:0;'>{name}</p>", unsafe_allow_html=True)
+        cols = st.columns(9)
+        for i in range(1, 10):
+            tile = f"{i}{s}"
+            # 這裡只顯示數字 i，不顯示單位，節省空間
+            if cols[i-1].button(f"{i}", key=f"sel_{tile}"):
+                st.session_state.last_selected = tile
+    
+    st.markdown("<p style='color:lightgray; margin:0;'>字</p>", unsafe_allow_html=True)
+    z_names = ["東", "南", "西", "北", "中", "發", "白"]
+    z_cols = st.columns(7)
+    for i, name in enumerate(z_names):
+        if z_cols[i].button(name, key=f"sel_{name}"):
+            st.session_state.last_selected = name
+    
+    curr = st.session_state.last_selected
+    st.markdown(f"<p style='text-align:center; color:gold; margin:5px;'>已選: <b>{curr if curr else '-'}</b></p>", unsafe_allow_html=True)
+    
+    # 指派功能按鈕
+    a1, a2, a
 
 # --- 1. 初始化數據 ---
 for key in ['my_hand', 'p1_dis', 'p2_dis', 'p3_dis', 'last_selected']:
@@ -251,5 +271,6 @@ with res_c2:
                 st.bar_chart(df_s.set_index('出牌'))
 
                 st.table(df_s)
+
 
 
