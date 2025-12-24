@@ -4,57 +4,61 @@ import pandas as pd
 import random
 
 # --- 基礎設定 ---
-st.set_page_config(page_title="麻將 AI 控制台", layout="wide")
+st.set_page_config(page_title="麻將 AI 實戰控制台", layout="wide")
 
-# --- 🎨 深色模式與水平佈局 CSS ---
+# --- 🎨 深色模式文字強化 CSS ---
 st.markdown("""
     <style>
-    /* 1. 全域背景設定為深色 */
     .stApp { background-color: #121212 !important; color: #FFFFFF !important; }
     
-    /* 2. 強制網格佈局（選牌九宮格） */
+    /* 強制網格不換行 */
     [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
-        flex-wrap: nowrap !important; /* 禁止換行 */
+        flex-wrap: nowrap !important;
         gap: 3px !important;
     }
     
-    /* 讓三家監視器強行並排 */
+    /* 類別標籤文字樣式 */
+    .label-text {
+        color: #FFD700 !important; /* 金色 */
+        font-size: 16px !important;
+        font-weight: bold;
+        margin-top: 5px;
+        margin-bottom: 2px;
+    }
+
+    /* 三家監視器水平排列 */
     div.monitor-row [data-testid="column"] {
         flex: 1 1 33% !important;
         min-width: 0px !important;
-        text-align: center;
     }
 
-    /* 3. 按鈕外觀美化 */
+    /* 按鈕樣式 */
     div.stButton > button {
         width: 100% !important;
         height: 50px !important;
         font-size: 18px !important;
         font-weight: bold !important;
-        border-radius: 8px !important;
         background-color: #333333 !important;
         color: #FFFFFF !important;
         border: 1px solid #444444 !important;
     }
     
-    /* 功能與清空鈕 */
-    div.action-row button { background-color: #007AFF !important; border: none !important; height: 55px !important; }
-    div.ai-row button { background-color: #1E6F39 !important; height: 65px !important; border: none !important; }
+    div.action-row button { background-color: #007AFF !important; border: none !important; }
+    div.ai-row button { background-color: #1E6F39 !important; height: 65px !important; }
     div.clear-btn button { background-color: #8E0000 !important; height: 35px !important; font-size: 12px !important; border: none !important; }
 
-    /* 隱藏元素 */
     header, footer {visibility: hidden;}
-    .stMarkdown h3, .stMarkdown p { color: #FFFFFF !important; margin: 0px !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 1. 數據初始化與核心邏輯 (保留不變) ---
+# --- 1. 初始化與邏輯 (保留不變) ---
 if 'my_hand' not in st.session_state:
     for key in ['my_hand', 'p1_dis', 'p2_dis', 'p3_dis', 'last_selected']:
         st.session_state[key] = [] if key != 'last_selected' else ""
 
+# [請在此處保留之前的 can_hu, get_shanten, monte_carlo_simulation 函數]
 def can_hu(hand_17):
     if len(hand_17) != 17: return False
     counts = collections.Counter(hand_17)
@@ -131,31 +135,35 @@ def monte_carlo_simulation(hand, visible_counts, trials=1000):
 
 # --- 2. 佈局排序 ---
 
-# 第一區：選牌按鈕
 st.markdown("### 🎯 選擇牌種")
-def add_tile_logic(target):
-    if not st.session_state.last_selected: return
-    all_v = st.session_state.my_hand + st.session_state.p1_dis + st.session_state.p2_dis + st.session_state.p3_dis
-    if all_v.count(st.session_state.last_selected) >= 4:
-        st.error("此牌已達4張")
-    else:
-        target.append(st.session_state.last_selected); st.rerun()
 
-for s in [("m", "萬"), ("t", "筒"), ("s", "條")]:
+# 萬、筒、條 分類顯示
+for s, label in [("m", "萬 (Wan)"), ("t", "筒 (Tong)"), ("s", "條 (Suo)")]:
+    st.markdown(f'<p class="label-text">{label}</p>', unsafe_allow_html=True)
     cols = st.columns(9)
     for i in range(1, 10):
-        if cols[i-1].button(f"{i}", key=f"n_{i}{s[0]}"):
-            st.session_state.last_selected = f"{i}{s[0]}"; st.rerun()
+        if cols[i-1].button(f"{i}", key=f"n_{i}{s}"):
+            st.session_state.last_selected = f"{i}{s}"; st.rerun()
 
+st.markdown('<p class="label-text">字牌 (Honors)</p>', unsafe_allow_html=True)
 z_cols = st.columns(7)
 for i, name in enumerate(["東","南","西","北","中","發","白"]):
     if z_cols[i].button(name, key=f"z_{name}"):
         st.session_state.last_selected = name; st.rerun()
 
-st.markdown(f"<p style='text-align:center; color:gold;'>選中: {st.session_state.last_selected if st.session_state.last_selected else '-'}</p>", unsafe_allow_html=True)
+st.markdown(f"<p style='text-align:center; color:gold; font-size:20px; margin:5px;'>選中: {st.session_state.last_selected if st.session_state.last_selected else '-'}</p>", unsafe_allow_html=True)
 
+# 指派藍色按鈕區
 st.markdown('<div class="action-row">', unsafe_allow_html=True)
 a1, a2, a3, a4 = st.columns(4)
+def add_tile_logic(target):
+    if not st.session_state.last_selected: return
+    all_v = st.session_state.my_hand + st.session_state.p1_dis + st.session_state.p2_dis + st.session_state.p3_dis
+    if all_v.count(st.session_state.last_selected) >= 4:
+        st.error("已達4張上限")
+    else:
+        target.append(st.session_state.last_selected); st.rerun()
+
 if a1.button("＋我"): add_tile_logic(st.session_state.my_hand)
 if a2.button("＋上"): add_tile_logic(st.session_state.p3_dis)
 if a3.button("＋對"): add_tile_logic(st.session_state.p2_dis)
@@ -164,24 +172,24 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 st.divider()
 
-# 第二區：三家出牌與清空 (關鍵：水平並排)
+# 三家水平監控區
 st.markdown("### 👁️ 三家牌池監控")
 st.markdown('<div class="monitor-row">', unsafe_allow_html=True)
 c1, c2, c3 = st.columns(3)
 with c1: 
-    st.markdown("**⬅️ 上家**")
+    st.markdown("**⬅️ 上**")
     st.caption("".join(st.session_state.p3_dis))
     st.markdown('<div class="clear-btn">', unsafe_allow_html=True)
     if st.button("清上", key="cl3"): st.session_state.p3_dis = []; st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 with c2: 
-    st.markdown("**⬆️ 對家**")
+    st.markdown("**⬆️ 對**")
     st.caption("".join(st.session_state.p2_dis))
     st.markdown('<div class="clear-btn">', unsafe_allow_html=True)
     if st.button("清對", key="cl2"): st.session_state.p2_dis = []; st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 with c3: 
-    st.markdown("**➡️ 下家**")
+    st.markdown("**➡️ 下**")
     st.caption("".join(st.session_state.p1_dis))
     st.markdown('<div class="clear-btn">', unsafe_allow_html=True)
     if st.button("清下", key="cl1"): st.session_state.p1_dis = []; st.rerun()
@@ -190,7 +198,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 st.divider()
 
-# 第三區：我的手牌
+# 我的手牌
 st.markdown(f"### 🎴 我的手牌 ({len(st.session_state.my_hand)}/17)")
 st.session_state.my_hand.sort()
 h_row1 = st.columns(9)
@@ -200,32 +208,30 @@ h_row2 = st.columns(9)
 for i, tile in enumerate(st.session_state.my_hand[9:]):
     if h_row2[i].button(tile, key=f"h2_{i}"): st.session_state.my_hand.pop(i+9); st.rerun()
 st.markdown('<div class="clear-btn" style="text-align:center;">', unsafe_allow_html=True)
-if st.button("🗑️ 全部清空手牌", key="clmy"): st.session_state.my_hand = []; st.rerun()
+if st.button("🗑️ 全部清空我的手牌", key="clmy"): st.session_state.my_hand = []; st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
 
 st.divider()
 
-# 第四區：分析按鈕
+# 分析按鈕
+st.markdown("### 🤖 戰略分析")
 st.markdown('<div class="ai-row">', unsafe_allow_html=True)
 b1, b2 = st.columns(2)
 with b1:
     if st.button("🚀 深度分析", use_container_width=True):
-        visible = collections.Counter(st.session_state.my_hand + st.session_state.p1_dis + st.session_state.p2_dis + st.session_state.p3_dis)
+        v = collections.Counter(st.session_state.my_hand + st.session_state.p1_dis + st.session_state.p2_dis + st.session_state.p3_dis)
         ans = []
         for discard in set(st.session_state.my_hand):
             temp = st.session_state.my_hand.copy(); temp.remove(discard)
-            sh = get_shanten(temp)
-            rem = 0
+            sh = get_shanten(temp); rem = 0
             for t in ([f"{i}{s}" for i in range(1, 10) for s in ['m','t','s']] + ["東","南","西","北","中","發","白"]):
-                if get_shanten(temp + [t]) < sh or (sh==0 and can_hu(temp + [t])):
-                    rem += max(0, 4 - visible[t])
+                if get_shanten(temp + [t]) < sh or (sh==0 and can_hu(temp + [t])): rem += max(0, 4 - v[t])
             ans.append({"牌": discard, "進張": rem})
         st.table(pd.DataFrame(ans).sort_values(by="進張", ascending=False))
 with b2:
     if st.button("🧠 大數據模擬", use_container_width=True):
         with st.spinner('模擬中...'):
-            visible = collections.Counter(st.session_state.my_hand + st.session_state.p1_dis + st.session_state.p2_dis + st.session_state.p3_dis)
-            stats = monte_carlo_simulation(st.session_state.my_hand, visible)
-            df = pd.DataFrame(list(stats.items()), columns=['牌', '勝次']).sort_values(by='勝次', ascending=False)
-            st.table(df)
+            v = collections.Counter(st.session_state.my_hand + st.session_state.p1_dis + st.session_state.p2_dis + st.session_state.p3_dis)
+            stats = monte_carlo_simulation(st.session_state.my_hand, v)
+            st.table(pd.DataFrame(list(stats.items()), columns=['牌', '勝次']).sort_values(by='勝次', ascending=False))
 st.markdown('</div>', unsafe_allow_html=True)
