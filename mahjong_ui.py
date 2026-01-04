@@ -138,7 +138,7 @@ if a_cols[3].button("+上家"): add_t(st.session_state.p3_dis)
 # C. 三家監視器 (中間位置)
 st.markdown(f"""
 <div class="mon-row"><div class="mon-label">下家</div><div class="mon-content">{" ".join(st.session_state.p1_dis)}</div></div>
-<div class="mon-row"><div class="mon-label">對家</div><div class="mon-label">對家</div><div class="mon-content">{" ".join(st.session_state.p2_dis)}</div></div>
+<div class="mon-row"><div class="mon-label">對家</div><div class="mon-content">{" ".join(st.session_state.p2_dis)}</div></div>
 <div class="mon-row"><div class="mon-label">上家</div><div class="mon-content">{" ".join(st.session_state.p3_dis)}</div></div>
 """, unsafe_allow_html=True)
 
@@ -166,3 +166,4 @@ with ai_c1:
     st.markdown('</div>', unsafe_allow_html=True)
 with ai_c2:
     st.markdown(f'<div class="ai-res-box">{st.session_state.ai_res}</div>', unsafe_allow_html=True)
+
