@@ -17,11 +17,21 @@ st.set_page_config(page_title="麻將 AI 控制台", layout="centered")
 
 st.markdown("""
     <style>
-    /* 全域背景色 */
+    /* 強制修改背景顏色為淺藍色 */
     .stApp { background-color: #C1E6F3 !important; }
     
-    /* 隱藏 Streamlit 預設元件 */
-    header, footer, #MainMenu {visibility: hidden;}
+    /* 修改按鈕為黑框方塊 */
+    div.stButton > button {
+        background-color: #F0F0F0 !important;
+        border: 2px solid black !important;
+        border-radius: 0px !important;
+        color: black !important;
+    }
+    
+    /* 隱藏上方裝飾條 */
+    header, footer {visibility: hidden;}
+    </style>
+    """, unsafe_allow_html=True)
     
     /* 上方三家監控區塊樣式 */
     .monitor-box {
@@ -152,3 +162,4 @@ with footer_col1:
 
 with footer_col2:
     st.markdown(f'<div class="ai-output">{st.session_state.ai_res}</div>', unsafe_allow_html=True)
+
