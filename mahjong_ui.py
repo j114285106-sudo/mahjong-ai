@@ -89,4 +89,74 @@ if 'my_hand' not in st.session_state:
     for key in ['my_hand', 'p1_dis', 'p2_dis', 'p3_dis', 'last_selected', 'ai_res']:
         st.session_state[key] = [] if key not in ['last_selected', 'ai_res'] else ""
 
-# A.
+# A. 選牌九宮格
+def draw_grid(labels, g_key):
+    cols = st.columns(len(labels))
+    for i, lb in enumerate(labels):
+        if cols[i].button(lb, key=f"{g_key}_{i}"):
+            st.session_state.last_selected = lb; st.rerun()
+
+draw_grid(["1m","2m","3m","4m","5m","6m","7m","8m","9m"], "m")
+draw_grid(["1s","2s","3s","4s","5s","6s","7s","8s","9s"], "s")
+draw_grid(["1t","2t","3t","4t","5t","6t","7t","8t","9t"], "t")
+draw_grid(["東","南","西","北","中","發","白"], "z")
+
+# B. 動作按鈕
+st.write("")
+c_act = st.columns(4)
+def add_tile(target):
+    if st.session_state.last_selected: target.append(st.session_state.last_selected); st.rerun()
+if c_act[0].button("+我"): add_tile(st.session_state.my_hand)
+if c_act[1].button("+下家"): add_tile(st.session_state.p1_dis)
+if c_act[2].button("+對家"): add_tile(st.session_state.p2_dis)
+if c_act[3].button("+上家"): add_tile(st.session_state.p3_dis)
+
+# C. 三家監視器
+st.write("")
+st.markdown(f'<div class="mon-row"><div class="mon-label">下家</div><div class="mon-content">{" ".join(st.session_state.p1_dis)}</div></div>', unsafe_allow_html=True)
+st.markdown(f'<div class="mon-row"><div class="mon-label">對家</div><div class="mon-content">{" ".join(st.session_state.p2_dis)}</div></div>', unsafe_allow_html=True)
+st.markdown(f'<div class="mon-row"><div class="mon-label">上家</div><div class="mon-content">{" ".join(st.session_state.p3_dis)}</div></div>', unsafe_allow_html=True)
+
+# D. 我的手牌區 (單張點擊刪除 + 即時標色)
+st.write("")
+h_col1, h_col2, h_col3 = st.columns([3, 1, 1])
+with h_col1: st.markdown(f"### 我的手牌({len(st.session_state.my_hand)}/17)")
+with h_col2: st.button("鏡頭", key="cam_btn")
+with h_col3: st.markdown('<label for="hidden-cam" style="cursor:pointer; background:#AAAAAA; padding:5px 10px; border:1px solid black; font-weight:bold; font-size:14px;">拍照</label>', unsafe_allow_html=True)
+
+cap_img = st.camera_input("拍照", key="hidden-cam", label_visibility="collapsed")
+if cap_img:
+    file_bytes = np.asarray(bytearray(cap_img.read()), dtype=np.uint8)
+    img = cv2.imdecode(file_bytes, 1)
+    cv2.imwrite("scan.jpg", img)
+    result = CLIENT.infer("scan.jpg", model_id=MODEL_ID)
+    if "predictions" in result:
+        preds = result["predictions"]; preds.sort(key=lambda x: x["x"])
+        st.session_state.my_hand = [TILE_MAP.get(p["class"], p["class"]) for p in preds]; st.rerun()
+
+# 手牌按鈕顯示區
+st.markdown('<div class="hand-area">', unsafe_allow_html=True)
+h_btn_cols = st.columns(17)
+for idx, tile in enumerate(st.session_state.my_hand):
+    t_color = get_tile_safety(tile, st.session_state.my_hand, st.session_state.p1_dis, st.session_state.p2_dis, st.session_state.p3_dis)
+    # 動態改變按鈕背景
+    st.markdown(f"<style>div[data-testid='column']:nth-child({idx+1}) button {{ background-color: {t_color} !important; border: 2px solid #333 !important; }}</style>", unsafe_allow_html=True)
+    if h_btn_cols[idx % 17].button(tile, key=f"h_{idx}"):
+        st.session_state.my_hand.pop(idx); st.rerun()
+st.markdown('</div>', unsafe_allow_html=True)
+if st.button("🗑️ 全部清空手牌", key="cl_all"): st.session_state.my_hand = []; st.rerun()
+
+# E. AI 模擬 (防守分析)
+st.divider()
+ai_c1, ai_c2 = st.columns([1, 3])
+with ai_c1:
+    st.markdown('<div class="ai-btn-style">', unsafe_allow_html=True)
+    if st.button("AI模擬"):
+        st.session_state.ai_res = analyze_defense_pro(st.session_state.my_hand, st.session_state.p1_dis, st.session_state.p2_dis, st.session_state.p3_dis)
+    st.markdown('</div>', unsafe_allow_html=True)
+with ai_c2:
+    if st.session_state.ai_res:
+        txt = "".join([f"● <b>{i['牌']}</b>: 安全度 {i['安全度']}%<br>" for i in st.session_state.ai_res[:4]])
+        st.markdown(f'<div class="ai-res-box"><b>🛡️ 防守分析結果：</b><br>{txt}</div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="ai-res-box">等待模擬指令...</div>', unsafe_allow_html=True)
