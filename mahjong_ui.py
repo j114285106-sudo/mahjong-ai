@@ -17,13 +17,9 @@ st.set_page_config(page_title="麻將 AI 控制台", layout="centered")
 
 st.markdown("""
     <style>
-    /* 1. 強制全域背景顏色 */
     .stApp { background-color: #C1E6F3 !important; }
-    
-    /* 2. 隱藏預設元件 */
     header, footer, #MainMenu {visibility: hidden;}
     
-    /* 3. 三家監控橫條樣式 */
     .monitor-box {
         background-color: white;
         border: 2px solid black;
@@ -44,13 +40,8 @@ st.markdown("""
         font-weight: bold;
         flex-shrink: 0;
     }
-    .monitor-content {
-        padding-left: 10px;
-        font-weight: bold;
-        font-size: 18px;
-    }
+    .monitor-content { padding-left: 10px; font-weight: bold; font-size: 18px; color: black; }
 
-    /* 4. 黑框扁平化按鈕 */
     div.stButton > button {
         background-color: #F0F0F0 !important;
         color: black !important;
@@ -59,43 +50,39 @@ st.markdown("""
         font-weight: bold !important;
         font-size: 18px !important;
         width: 100%;
-        height: 50px;
-        margin: 0 !important;
+        height: 45px;
     }
     
-    /* 5. 相機與拍照按鈕樣式 */
     .camera-btn button { 
         background-color: #AAAAAA !important; 
         height: 35px !important; 
         font-size: 14px !important;
-        border: 1px solid black !important;
     }
     
-    /* 6. AI 模擬綠色按鈕 */
     .ai-main-btn button { 
         background-color: #00B050 !important; 
         color: white !important; 
-        height: 120px !important; 
-        font-size: 24px !important; 
+        height: 100px !important; 
+        font-size: 22px !important; 
     }
 
-    /* 7. 我的手牌顯示框 */
     .hand-display {
         background-color: white;
         border: 2px solid black;
-        min-height: 80px;
+        min-height: 70px;
         margin-top: 5px;
         padding: 10px;
-        font-size: 22px;
+        font-size: 20px;
         font-weight: bold;
+        color: black;
     }
     
-    /* 8. AI 結果區域 */
     .ai-output {
         background-color: #D9EAD3;
         border: 2px dashed black;
-        min-height: 120px;
+        min-height: 100px;
         padding: 10px;
+        color: black;
         font-weight: bold;
     }
     </style>
@@ -104,7 +91,7 @@ st.markdown("""
 # --- 3. 初始化狀態 ---
 if 'my_hand' not in st.session_state:
     for key in ['my_hand', 'p1_dis', 'p2_dis', 'p3_dis', 'last_selected', 'ai_res']:
-        st.session_state[key] = [] if key != 'last_selected' and key != 'ai_res' else ""
+        st.session_state[key] = [] if key not in ['last_selected', 'ai_res'] else ""
 
 # --- 4. 界面布局 ---
 
@@ -119,7 +106,7 @@ st.write("")
 def tile_row(labels):
     cols = st.columns(len(labels))
     for i, label in enumerate(labels):
-        if cols[i].button(label):
+        if cols[i].button(label, key=f"sel_{label}"):
             st.session_state.last_selected = label; st.rerun()
 
 tile_row(["一萬","二萬","三萬","四萬","五萬","六萬","七萬","八萬","九萬"])
@@ -140,28 +127,52 @@ if c2.button("+下家"): add_tile(st.session_state.p1_dis)
 if c3.button("+對家"): add_tile(st.session_state.p2_dis)
 if c4.button("+上家"): add_tile(st.session_state.p3_dis)
 
-st.write("")
-
 # D. 我的手牌區域
 st.markdown("---")
 h_col1, h_col2, h_col3 = st.columns([3, 1, 1])
-with h_col1: st.subheader("我的手牌")
+with h_col1: st.markdown("### 我的手牌")
 with h_col2:
     st.markdown('<div class="camera-btn">', unsafe_allow_html=True)
-    if st.button("鏡頭", key="cam_stream"): pass
+    if st.button("鏡頭", key="cam_btn"): st.info("鏡頭串流準備中")
     st.markdown('</div>', unsafe_allow_html=True)
 with h_col3:
     st.markdown('<div class="camera-btn">', unsafe_allow_html=True)
     cap_img = st.camera_input("拍照", label_visibility="collapsed")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# 執行辨識邏輯
+# 辨識邏輯：處理 try-except 結構
 if cap_img:
-    with st.spinner('辨識中...'):
+    with st.spinner('AI 辨識中...'):
         try:
             file_bytes = np.asarray(bytearray(cap_img.read()), dtype=np.uint8)
             temp_img = cv2.imdecode(file_bytes, 1)
-            cv2.imwrite("temp.jpg", temp_img)
-            result = CLIENT.infer("temp.jpg", model_id=MODEL_ID)
+            cv2.imwrite("temp_scan.jpg", temp_img)
+            
+            # 呼叫 Roboflow
+            result = CLIENT.infer("temp_scan.jpg", model_id=MODEL_ID)
+            
             if "predictions" in result:
                 preds = result["predictions"]
+                preds.sort(key=lambda x: x["x"])
+                # 更新手牌
+                st.session_state.my_hand = [p["class"] for p in preds]
+                st.rerun()
+        except Exception as e:
+            st.error(f"辨識發生錯誤: {e}")
+
+st.markdown(f'<div class="hand-display">{" ".join(st.session_state.my_hand)}</div>', unsafe_allow_html=True)
+if st.button("🗑️ 清空手牌", key="clear_my"):
+    st.session_state.my_hand = []
+    st.rerun()
+
+st.write("")
+
+# E. AI 模擬與結果區
+f1, f2 = st.columns([1, 2])
+with f1:
+    st.markdown('<div class="ai-main-btn">', unsafe_allow_html=True)
+    if st.button("AI模擬", key="ai_go"):
+        st.session_state.ai_res = "分析完成！\n建議打出：一萬\n剩餘進張：12張"
+    st.markdown('</div>', unsafe_allow_html=True)
+with f2:
+    st.markdown(f'<div class="ai-output">{st.session_state.ai_res if st.session_state.ai_res else "等待指令..."}</div>', unsafe_allow_html=True)
