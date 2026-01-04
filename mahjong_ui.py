@@ -142,4 +142,58 @@ captured_image = st.camera_input("請對準手牌拍照")
 if captured_image:
     with st.spinner('AI 正在辨識你的手牌...'):
         try:
-            tiles = recognize_
+            tiles = recognize_tiles(captured_image)
+            if tiles:
+                st.session_state.my_hand = tiles
+                st.success(f"辨識完成！")
+            else: st.warning("未偵測到牌。")
+        except Exception as e: st.error(f"辨識出錯：{e}")
+
+st.divider()
+
+# 九宮格選牌區
+for s in [("m", "萬"), ("t", "筒"), ("s", "條")]:
+    cols = st.columns(9)
+    for i in range(1, 10):
+        if cols[i-1].button(f"{i}", key=f"n_{i}{s[0]}"):
+            st.session_state.last_selected = f"{i}{s[0]}"; st.rerun()
+
+# 動作指派
+st.markdown('<div class="action-row">', unsafe_allow_html=True)
+a1, a2, a3, a4 = st.columns(4)
+def add_tile(target):
+    if st.session_state.last_selected: target.append(st.session_state.last_selected); st.rerun()
+if a1.button("＋我"): add_tile(st.session_state.my_hand)
+if a2.button("＋上"): add_tile(st.session_state.p3_dis)
+if a3.button("＋對"): add_tile(st.session_state.p2_dis)
+if a4.button("＋下"): add_tile(st.session_state.p1_dis)
+st.markdown('</div>', unsafe_allow_html=True)
+
+# 監視器
+st.divider()
+m1, m2, m3, m4 = st.columns(4)
+with m1: st.write("⬅️", "".join(st.session_state.p3_dis)); st.button("清上", on_click=lambda: st.session_state.p3_dis.clear())
+with m2: st.write("⬆️", "".join(st.session_state.p2_dis)); st.button("清對", on_click=lambda: st.session_state.p2_dis.clear())
+with m3: st.write("➡️", "".join(st.session_state.p1_dis)); st.button("清下", on_click=lambda: st.session_state.p1_dis.clear())
+with m4: st.write("🎴", "".join(st.session_state.my_hand)); st.button("清我", on_click=lambda: st.session_state.my_hand.clear())
+
+st.divider()
+# 分析按鈕
+st.markdown('<div class="ai-row">', unsafe_allow_html=True)
+b1, b2 = st.columns(2)
+with b1:
+    if st.button("🚀 深度分析", use_container_width=True):
+        v = collections.Counter(st.session_state.my_hand + st.session_state.p1_dis + st.session_state.p2_dis + st.session_state.p3_dis)
+        ans = []
+        for discard in set(st.session_state.my_hand):
+            temp = st.session_state.my_hand.copy(); temp.remove(discard); sh = get_shanten(temp); rem = 0
+            for t in ([f"{i}{s}" for i in range(1, 10) for s in ['m','t','s']] + ["東","南","西","北","中","發","白"]):
+                if get_shanten(temp + [t]) < sh or (sh==0 and can_hu(temp + [t])): rem += max(0, 4 - v[t])
+            ans.append({"牌": discard, "進張": rem})
+        st.table(pd.DataFrame(ans).sort_values(by="進張", ascending=False))
+with b2:
+    if st.button("🧠 大數據模擬", use_container_width=True):
+        v = collections.Counter(st.session_state.my_hand + st.session_state.p1_dis + st.session_state.p2_dis + st.session_state.p3_dis)
+        stats = monte_carlo_simulation(st.session_state.my_hand, v)
+        st.table(pd.DataFrame(list(stats.items()), columns=['牌', '勝次']).sort_values(by='勝次', ascending=False))
+st.markdown('</div>', unsafe_allow_html=True)
