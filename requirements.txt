@@ -3,5 +3,5 @@ pandas
 numpy
 opencv-python-headless
 roboflow
-inference-sdk
-inference
+inference-sdk==0.9.15
+inference==0.9.15
