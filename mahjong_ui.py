@@ -4,16 +4,7 @@ import pandas as pd
 import random
 import numpy as np
 import cv2
-
-# --- 加強型 Roboflow SDK 引用 ---
-try:
-    from inference_sdk import InferenceHTTPClient
-except ImportError:
-    try:
-        from inference.core.interfaces.http.http_api import InferenceHTTPClient
-    except ImportError:
-        st.error("❌ 系統偵測到環境尚未準備好，請稍候並執行 Reboot App。")
-
+from inference_sdk import InferenceHTTPClient
 # --- 1. Roboflow 初始化 ---
 CLIENT = InferenceHTTPClient(
     api_url="https://serverless.roboflow.com",
@@ -205,4 +196,5 @@ with b2:
         stats = monte_carlo_simulation(st.session_state.my_hand, v)
         st.table(pd.DataFrame(list(stats.items()), columns=['牌', '勝次']).sort_values(by='勝次', ascending=False))
 st.markdown('</div>', unsafe_allow_html=True)
+
 
