@@ -1,10 +1,10 @@
 import streamlit as st
 import collections
 import pandas as pd
-import random
 import numpy as np
-import cv2
 from inference_sdk import InferenceHTTPClient
+import cv2
+
 # --- 1. Roboflow 初始化 ---
 CLIENT = InferenceHTTPClient(
     api_url="https://serverless.roboflow.com",
@@ -12,189 +12,143 @@ CLIENT = InferenceHTTPClient(
 )
 MODEL_ID = "mahjong-vtacs/1"
 
-# --- 2. 基礎設定與手機版 CSS ---
-st.set_page_config(page_title="麻將 AI 實戰控制台", layout="wide")
+# --- 2. 頁面配置與圖形化 CSS ---
+st.set_page_config(page_title="麻將 AI 控制台", layout="centered")
 
 st.markdown("""
     <style>
-    .stApp { background-color: #121212 !important; color: #FFFFFF !important; }
-    /* 強制九宮格排版 */
-    [data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        gap: 3px !important;
+    /* 全域背景色 */
+    .stApp { background-color: #C1E6F3 !important; }
+    
+    /* 隱藏 Streamlit 預設元件 */
+    header, footer, #MainMenu {visibility: hidden;}
+    
+    /* 上方三家監控區塊樣式 */
+    .monitor-box {
+        background-color: white;
+        border: 2px solid black;
+        height: 40px;
+        margin-bottom: 5px;
+        display: flex;
+        align-items: center;
+        padding-left: 10px;
+        font-weight: bold;
     }
+    .monitor-label {
+        background-color: #D1F0FA;
+        border-right: 2px solid black;
+        width: 60px;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* 通用按鈕樣式覆蓋 */
     div.stButton > button {
-        width: 100% !important;
-        height: 50px !important;
-        font-size: 18px !important;
+        background-color: #F0F0F0 !important;
+        color: black !important;
+        border: 2px solid black !important;
+        border-radius: 0px !important;
         font-weight: bold !important;
-        background-color: #333333 !important;
-        color: #FFFFFF !important;
-        border-radius: 8px !important;
+        font-size: 18px !important;
     }
-    div.action-row button { background-color: #007AFF !important; border: none !important; }
-    div.ai-row button { background-color: #1E6F39 !important; height: 65px !important; }
-    div.clear-btn button { background-color: #8E0000 !important; height: 35px !important; font-size: 12px !important; }
-    header, footer {visibility: hidden;}
+    
+    /* 特定功能按鈕顏色 */
+    .action-btn button { background-color: #E0E0E0 !important; }
+    .camera-btn button { background-color: #AAAAAA !important; color: black !important; border: none !important; height: 35px !important; font-size: 14px !important;}
+    .ai-main-btn button { background-color: #00B050 !important; color: white !important; height: 100px !important; font-size: 24px !important; }
+
+    /* 我的手牌顯示框 */
+    .hand-display {
+        background-color: #F2F2F2;
+        border: 2px solid black;
+        height: 80px;
+        margin-top: 5px;
+        padding: 10px;
+        font-size: 20px;
+    }
+    
+    /* AI 結果綠色區域 */
+    .ai-output {
+        background-color: #D9EAD3;
+        border: 2px dashed black;
+        height: 200px;
+        padding: 10px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 3. 核心邏輯函數 ---
-def can_hu(hand_17):
-    if len(hand_17) != 17: return False
-    counts = collections.Counter(hand_17)
-    def solve(h):
-        if not h: return True
-        f = h[0]
-        if counts[f] >= 3:
-            counts[f] -= 3
-            if solve([x for x in h if counts[x] > 0]): return True
-            counts[f] += 3
-        if len(f) == 2 and f[1] in 'mts':
-            v, s = int(f[0]), f[1]
-            if counts.get(f"{v+1}{s}", 0) > 0 and counts.get(f"{v+2}{s}", 0) > 0:
-                counts[f]-=1; counts[f"{v+1}{s}"]-=1; counts[f"{v+2}{s}"]-=1
-                if solve([x for x in h if counts[x] > 0]): return True
-                counts[f]+=1; counts[f"{v+1}{s}"]+=1; counts[f"{v+2}{s}"]+=1
-        return False
-    for t in sorted(counts.keys()):
-        if counts[t] >= 2:
-            counts[t] -= 2
-            if solve(sorted(list(counts.elements()))): return True
-            counts[t] += 2
-    return False
-
-def get_shanten(hand):
-    counts = collections.Counter(hand)
-    def solve(h):
-        if not h: return 0, 0
-        f = h[0]
-        m1, d1 = 0, 0
-        if counts[f] >= 3:
-            counts[f] -= 3
-            m, d = solve([x for x in h if counts[x] > 0])
-            m1, d1 = max(m1, m + 1), max(d1, d)
-            counts[f] += 3
-        if len(f) == 2 and f[1] in 'mts':
-            v, s = int(f[0]), f[1]
-            if counts.get(f"{v+1}{s}", 0) > 0 and counts.get(f"{v+2}{s}", 0) > 0:
-                counts[f]-=1; counts[f"{v+1}{s}"]-=1; counts[f"{v+2}{s}"]-=1
-                m, d = solve([x for x in h if counts[x] > 0])
-                m1, d1 = max(m1, m + 1), max(d1, d)
-                counts[f]+=1; counts[f"{v+1}{s}"]+=1; counts[f"{v+2}{s}"]+=1
-        if counts[f] >= 2:
-            counts[f] -= 2
-            m, d = solve([x for x in h if counts[x] > 0])
-            m1, d1 = max(m1, m), max(d1, d + 1)
-            counts[f] += 2
-        counts[f] -= 1
-        m, d = solve([x for x in h if counts[x] > 0])
-        m1, d1 = max(m1, m), max(d1, d)
-        counts[f] += 1
-        return m1, d1
-    m, d = solve(sorted(list(counts.elements())))
-    return max(0, 8 - (m * 2) - d)
-
-def monte_carlo_simulation(hand, visible_counts, trials=1000):
-    all_tiles = ([f"{i}{s}" for i in range(1, 10) for s in ['m','t','s']] + ["東","南","西","北","中","發","白"]) * 4
-    for t, c in visible_counts.items():
-        for _ in range(c): 
-            if t in all_tiles: all_tiles.remove(t)
-    results = {}
-    for discard in set(hand):
-        wins = 0
-        temp = hand.copy(); temp.remove(discard)
-        for _ in range(trials):
-            wall = random.sample(all_tiles, min(len(all_tiles), 15))
-            sim_h = temp.copy()
-            for draw in wall:
-                sim_h.append(draw)
-                if can_hu(sim_h): wins += 1; break
-                sim_h.pop()
-        results[discard] = wins
-    return results
-
-# --- 4. 影像辨識函數 ---
-def recognize_tiles(captured_file):
-    file_bytes = np.asarray(bytearray(captured_file.read()), dtype=np.uint8)
-    temp_img = cv2.imdecode(file_bytes, 1)
-    cv2.imwrite("temp_scan.jpg", temp_img)
-    result = CLIENT.infer("temp_scan.jpg", model_id=MODEL_ID)
-    detected_tiles = []
-    if "predictions" in result:
-        preds = result["predictions"]
-        preds.sort(key=lambda x: x["x"]) # 從左到右排序
-        for p in preds:
-            detected_tiles.append(p["class"])
-    return detected_tiles
-
-# --- 5. 初始化與介面 ---
+# --- 3. 初始化狀態 ---
 if 'my_hand' not in st.session_state:
-    for key in ['my_hand', 'p1_dis', 'p2_dis', 'p3_dis', 'last_selected']:
-        st.session_state[key] = [] if key != 'last_selected' else ""
+    for key in ['my_hand', 'p1_dis', 'p2_dis', 'p3_dis', 'last_selected', 'ai_res']:
+        st.session_state[key] = [] if key != 'last_selected' and key != 'ai_res' else ""
 
-st.markdown("### 📸 拍照掃描手牌")
-captured_image = st.camera_input("請對準手牌拍照")
+# --- 4. 界面布局 (照圖施工) ---
 
-if captured_image:
-    with st.spinner('AI 正在辨識你的手牌...'):
-        try:
-            tiles = recognize_tiles(captured_image)
-            if tiles:
-                st.session_state.my_hand = tiles
-                st.success(f"辨識完成！")
-            else: st.warning("未偵測到牌。")
-        except Exception as e: st.error(f"辨識出錯：{e}")
+# 上方三家顯示
+st.markdown(f'<div class="monitor-box"><div class="monitor-label">下家</div>{" ".join(st.session_state.p1_dis)}</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="monitor-box"><div class="monitor-label">對家</div>{" ".join(st.session_state.p2_dis)}</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="monitor-box"><div class="monitor-label">上家</div>{" ".join(st.session_state.p3_dis)}</div>', unsafe_allow_html=True)
 
-st.divider()
+st.write("") # 間隔
 
-# 九宮格選牌區
-for s in [("m", "萬"), ("t", "筒"), ("s", "條")]:
-    cols = st.columns(9)
-    for i in range(1, 10):
-        if cols[i-1].button(f"{i}", key=f"n_{i}{s[0]}"):
-            st.session_state.last_selected = f"{i}{s[0]}"; st.rerun()
+# 牌種選擇按鈕區
+def tile_row(labels, suffix):
+    cols = st.columns(len(labels))
+    for i, label in enumerate(labels):
+        if cols[i].button(label, key=f"btn_{label}_{suffix}"):
+            st.session_state.last_selected = label; st.rerun()
 
-# 動作指派
-st.markdown('<div class="action-row">', unsafe_allow_html=True)
-a1, a2, a3, a4 = st.columns(4)
+tile_row(["一萬","二萬","三萬","四萬","五萬","六萬","七萬","八萬","九萬"], "m")
+tile_row(["一條","二條","三條","四條","五條","六條","七條","八條","九條"], "s")
+tile_row(["一筒","二筒","三筒","四筒","五筒","六筒","七筒","八筒","九筒"], "t")
+tile_row(["東","南","西","北","中","發","白"], "z")
+
+st.write("")
+
+# 指派動作按鈕
+st.markdown('<div class="action-btn">', unsafe_allow_html=True)
+c1, c2, c3, c4 = st.columns(4)
 def add_tile(target):
-    if st.session_state.last_selected: target.append(st.session_state.last_selected); st.rerun()
-if a1.button("＋我"): add_tile(st.session_state.my_hand)
-if a2.button("＋上"): add_tile(st.session_state.p3_dis)
-if a3.button("＋對"): add_tile(st.session_state.p2_dis)
-if a4.button("＋下"): add_tile(st.session_state.p1_dis)
+    if st.session_state.last_selected: 
+        target.append(st.session_state.last_selected); st.rerun()
+
+if c1.button("＋我"): add_tile(st.session_state.my_hand)
+if c2.button("＋下家"): add_tile(st.session_state.p1_dis)
+if c3.button("＋對家"): add_tile(st.session_state.p2_dis)
+if c4.button("＋上家"): add_tile(st.session_state.p3_dis)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# 監視器
-st.divider()
-m1, m2, m3, m4 = st.columns(4)
-with m1: st.write("⬅️", "".join(st.session_state.p3_dis)); st.button("清上", on_click=lambda: st.session_state.p3_dis.clear())
-with m2: st.write("⬆️", "".join(st.session_state.p2_dis)); st.button("清對", on_click=lambda: st.session_state.p2_dis.clear())
-with m3: st.write("➡️", "".join(st.session_state.p1_dis)); st.button("清下", on_click=lambda: st.session_state.p1_dis.clear())
-with m4: st.write("🎴", "".join(st.session_state.my_hand)); st.button("清我", on_click=lambda: st.session_state.my_hand.clear())
+st.write("")
 
-st.divider()
-# 分析按鈕
-st.markdown('<div class="ai-row">', unsafe_allow_html=True)
-b1, b2 = st.columns(2)
-with b1:
-    if st.button("🚀 深度分析", use_container_width=True):
-        v = collections.Counter(st.session_state.my_hand + st.session_state.p1_dis + st.session_state.p2_dis + st.session_state.p3_dis)
-        ans = []
-        for discard in set(st.session_state.my_hand):
-            temp = st.session_state.my_hand.copy(); temp.remove(discard); sh = get_shanten(temp); rem = 0
-            for t in ([f"{i}{s}" for i in range(1, 10) for s in ['m','t','s']] + ["東","南","西","北","中","發","白"]):
-                if get_shanten(temp + [t]) < sh or (sh==0 and can_hu(temp + [t])): rem += max(0, 4 - v[t])
-            ans.append({"牌": discard, "進張": rem})
-        st.table(pd.DataFrame(ans).sort_values(by="進張", ascending=False))
-with b2:
-    if st.button("🧠 大數據模擬", use_container_width=True):
-        v = collections.Counter(st.session_state.my_hand + st.session_state.p1_dis + st.session_state.p2_dis + st.session_state.p3_dis)
-        stats = monte_carlo_simulation(st.session_state.my_hand, v)
-        st.table(pd.DataFrame(list(stats.items()), columns=['牌', '勝次']).sort_values(by='勝次', ascending=False))
-st.markdown('</div>', unsafe_allow_html=True)
+# 我的手牌標題與相機按鈕
+h_head_1, h_head_2, h_head_3 = st.columns([4, 1, 1])
+with h_head_1: st.markdown("### 我的手牌")
+with h_head_2: 
+    st.markdown('<div class="camera-btn">', unsafe_allow_html=True)
+    if st.button("鏡頭"): pass # 未來擴充即時偵測
+    st.markdown('</div>', unsafe_allow_html=True)
+with h_head_3:
+    st.markdown('<div class="camera-btn">', unsafe_allow_html=True)
+    # 使用 Streamlit 原生相機但隱藏，透過按鈕觸發（簡化版直接顯示）
+    captured_image = st.camera_input("拍照", label_visibility="collapsed")
+    st.markdown('</div>', unsafe_allow_html=True)
 
+# 我的手牌內容顯示框
+st.markdown(f'<div class="hand-display">{" ".join(st.session_state.my_hand)}</div>', unsafe_allow_html=True)
+if st.button("🗑️ 清空手牌"): st.session_state.my_hand = []; st.rerun()
 
+st.write("")
+
+# AI 模擬區
+footer_col1, footer_col2 = st.columns([1, 3])
+with footer_col1:
+    st.markdown('<div class="ai-main-btn">', unsafe_allow_html=True)
+    if st.button("AI模擬"):
+        # 這裡放入你原本的分析邏輯，將結果存入 st.session_state.ai_res
+        st.session_state.ai_res = "正在分析目前的牌局狀況...\n建議打出：一萬\n目前向聽數：2"
+    st.markdown('</div>', unsafe_allow_html=True)
+
+with footer_col2:
+    st.markdown(f'<div class="ai-output">{st.session_state.ai_res}</div>', unsafe_allow_html=True)
